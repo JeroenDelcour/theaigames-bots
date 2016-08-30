@@ -1,0 +1,3 @@
+[submodule "fourinarow/fourinarow-engine"]
+	path = fourinarow/fourinarow-engine
+	url = https://github.com/theaigames/fourinarow-engine
