@@ -11,3 +11,8 @@
     - when predicting loss, now tries to delay loss (used to just pick a random move)
 - v6: fixed that it didn't detect a win condition in two diagonals
 - v7: fixed bug where, if it had only losing options, it would always pick column 0 even if that wasn't a valid move. Also commented out unnecessary move simulation.
+
+# To-do
+
+- Layer alpha-beta on top of iterative deepening (i.e. reorder the nodes so alpha-beta starts with the max-value one)
+- hash table of previously evaluated boards
