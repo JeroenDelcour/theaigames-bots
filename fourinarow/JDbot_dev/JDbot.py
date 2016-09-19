@@ -8,7 +8,8 @@ from sys import stdin, stdout
 import numpy as np
 from KnuthMorrisPratt import KnuthMorrisPratt
 import time
-import logging
+from collections import OrderedDict
+import logging, sys
 logging.basicConfig(filename='JDbot.log',format='%(asctime)s %(levelname)s: %(message)s',level=logging.DEBUG)
 
 class Bot(object):
@@ -140,11 +141,13 @@ class Bot(object):
 		""" Raised when attempting to place disk in full column. """
 
 
-class StarterBot(Bot):
+class JDbot(Bot):
 
 	simulate_move_times = []
 	evaluate_times = []
 	round_timeout = -1
+	board_hash = OrderedDict()
+	max_hash_size = 42*7**6 # should be about 70 megabytes, you can check with sys.getsizeof(hash(str(board)))
 
 	def get_rounds_left(self):
 		""" Returns estimated number of rounds left in game. """
@@ -182,6 +185,8 @@ class StarterBot(Bot):
 
 		board_value = self.evaluate_board(new_board)
 		logging.info('Board value: {}'.format(board_value))
+
+		# logging.info('Current hash table size (MB): {}'.format(sys.getsizeof(self.board_hash)/1e6))
 
 		self.place_disc(move)
 
@@ -330,7 +335,14 @@ class StarterBot(Bot):
 
 		value = 0
 
-		# first check if we've won or lost
+		# first check if this board is in our hash table
+		try:
+			value = self.board_hash[hash(str(board))]
+			return value
+		except KeyError:
+			pass
+
+		# check if we've won or lost
 		if self.winning_board(board, self.me()):
 			return float('inf')
 		if self.winning_board(board, self.him()):
@@ -386,6 +398,12 @@ class StarterBot(Bot):
 			else:
 				value -= v
 
+			# store board and value in hash table
+			if len(self.board_hash) >= self.max_hash_size: # if hash table has reached max size, delete oldest entry
+				self.board_hash.popitem(last=False)
+				logging.info('Popped oldest item in hash table')
+			self.board_hash[hash(str(board))] = value
+
 		return value
 
 	patterns = {1: {
@@ -436,7 +454,7 @@ if __name__ == '__main__':
 	""" Run the bot! """
 
 	try:
-		StarterBot().run()
+		JDbot().run()
 		# StarterBot().test()
 	except:
 		logging.exception("Oops:")
