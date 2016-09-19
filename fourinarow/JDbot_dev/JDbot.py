@@ -12,6 +12,50 @@ from collections import OrderedDict
 import logging, sys
 logging.basicConfig(filename='JDbot.log',format='%(asctime)s %(levelname)s: %(message)s',level=logging.DEBUG)
 
+
+
+class hashtable:
+	"""
+	Hash table inspired by Zulko's easyAI: https://github.com/Zulko/easyAI/blob/master/easyAI/AI/DictTT.py
+	"""
+
+	def __init__(self, num_buckets=1024):
+		self.dict = []
+		for i in range(int(num_buckets)):
+			self.dict.append((None, None))
+		self.num_collisions = 0
+
+	def hash_key(self, key):
+		"""
+		Given a key this will create a number and convert it to an index for the dict.
+		"""
+		return hash(key) % len(self.dict)
+
+	def get(self, key):
+		i, k, v = self.get_slot(key)
+		return v
+
+	def get_slot(self, key):
+		slot = self.hash_key(key)
+
+		if key == self.dict[slot][0]: # check this entry is the one we're looking for
+			return slot, self.dict[slot][0], self.dict[slot][1]
+		else:
+			return -1, key, None
+
+	def set(self, key, value):
+		slot = self.hash_key(key)
+
+		if self.dict[slot] != (None, None):
+			self.num_collisions += 1
+
+		self.dict[slot] = (key, value)
+
+	def delete(self, key):
+		slot = self.hash_key(key)
+		self.dict[slot] = (None, None)
+
+
 class Bot(object):
 
 	settings = dict()
@@ -146,8 +190,8 @@ class JDbot(Bot):
 	simulate_move_times = []
 	evaluate_times = []
 	round_timeout = -1
-	board_hash = OrderedDict()
-	max_hash_size = 42*7**6 # should be about 70 megabytes, you can check with sys.getsizeof(hash(str(board)))
+	num_evals = 0 # number of board evaluations done
+	tt = hashtable(num_buckets=1024)
 
 	def get_rounds_left(self):
 		""" Returns estimated number of rounds left in game. """
@@ -185,6 +229,10 @@ class JDbot(Bot):
 
 		board_value = self.evaluate_board(new_board)
 		logging.info('Board value: {}'.format(board_value))
+
+		logging.info('Board evaluations this turn: {}'.format(self.num_evals))
+		self.num_evals = 0
+		logging.info('Transposition table collisions: {}'.format(self.tt.num_collisions))
 
 		# logging.info('Current hash table size (MB): {}'.format(sys.getsizeof(self.board_hash)/1e6))
 
@@ -324,6 +372,8 @@ class JDbot(Bot):
 
 	def evaluate_board(self, board):
 
+		self.num_evals += 1
+
 		# stopwatch = time.time()
 
 		# row_and_diag_patterns = np.array([[1,0,1,1], [1,1,0,1], [0,1,1,1], [1,1,1,0]])
@@ -333,14 +383,12 @@ class JDbot(Bot):
 		diag_multiplier = 10
 		even_odd_multiplier = 1.5
 
-		value = 0
-
 		# first check if this board is in our hash table
-		try:
-			value = self.board_hash[hash(str(board))]
+		value = self.tt.get(str(board))
+		if value != None:
 			return value
-		except KeyError:
-			pass
+
+		value = 0
 
 		# check if we've won or lost
 		if self.winning_board(board, self.me()):
@@ -398,11 +446,8 @@ class JDbot(Bot):
 			else:
 				value -= v
 
-			# store board and value in hash table
-			if len(self.board_hash) >= self.max_hash_size: # if hash table has reached max size, delete oldest entry
-				self.board_hash.popitem(last=False)
-				logging.info('Popped oldest item in hash table')
-			self.board_hash[hash(str(board))] = value
+			# store value in transposition table
+			self.tt.set(str(board), value)
 
 		return value
 
