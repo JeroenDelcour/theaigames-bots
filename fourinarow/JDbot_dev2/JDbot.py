@@ -145,6 +145,7 @@ class StarterBot(Bot):
 	simulate_move_times = []
 	evaluate_times = []
 	round_timeout = -1
+	num_evals = 0 # number of board evaluations done
 
 	def get_rounds_left(self):
 		""" Returns estimated number of rounds left in game. """
@@ -182,6 +183,9 @@ class StarterBot(Bot):
 
 		board_value = self.evaluate_board(new_board)
 		logging.info('Board value: {}'.format(board_value))
+		
+		logging.info('Board evaluations this turn: {}'.format(self.num_evals))
+		self.num_evals = 0
 
 		self.place_disc(move)
 
@@ -318,6 +322,8 @@ class StarterBot(Bot):
 		return threats
 
 	def evaluate_board(self, board):
+
+		self.num_evals += 1
 
 		# stopwatch = time.time()
 
