@@ -495,8 +495,8 @@ class JDbot(Bot):
 if __name__ == '__main__':
 	""" Run the bot! """
 
-	# try:
-	JDbot().run()
+	try:
+		JDbot().run()
 		# StarterBot().test()
-	# except:
+	except:
 		# logging.exception("Oops:")
