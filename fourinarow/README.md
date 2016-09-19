@@ -11,6 +11,7 @@
     - when predicting loss, now tries to delay loss (used to just pick a random move)
 - v6: fixed that it didn't detect a win condition in two diagonals
 - v7: fixed bug where, if it had only losing options, it would always pick column 0 even if that wasn't a valid move. Also commented out unnecessary move simulation.
+- v8: added transposition table with max of 1e7 elements. On my lowly laptop, it seems to tank performance: only 1/3 as many nodes evaluated, but let's see what theaigames.com's beefy machine does.
 
 # To-do
 

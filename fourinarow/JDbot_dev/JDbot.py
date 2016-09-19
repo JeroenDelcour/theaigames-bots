@@ -8,13 +8,12 @@ from sys import stdin, stdout
 import numpy as np
 from KnuthMorrisPratt import KnuthMorrisPratt
 import time
-from collections import OrderedDict
-import logging, sys
-logging.basicConfig(filename='JDbot.log',format='%(asctime)s %(levelname)s: %(message)s',level=logging.DEBUG)
+# import # logging, sys
+# logging.basicConfig(filename='JDbot.log',format='%(asctime)s %(levelname)s: %(message)s',level=# logging.DEBUG)
 
 
 
-class hashtable:
+class transpositiontable:
 	"""
 	Hash table inspired by Zulko's easyAI: https://github.com/Zulko/easyAI/blob/master/easyAI/AI/DictTT.py
 	"""
@@ -23,6 +22,7 @@ class hashtable:
 		self.dict = []
 		for i in range(int(num_buckets)):
 			self.dict.append((None, None))
+		# logging.info('Transposition table size (MB): {}'.format(sys.getsizeof(self.tt.dict)/1e6))
 		self.num_collisions = 0
 
 	def hash_key(self, key):
@@ -93,7 +93,7 @@ class Bot(object):
 		new_board[np.max(np.where(new_board[:,col_nr]==0)),col_nr] = curr_player
 		# self.simulate_move_times.append(time.time() - stopwatch)
 		# if len(self.simulate_move_times) >= 3:
-		# 	logging.inf('Mean simulate move time +- SD: {} +- {}'.format(np.mean(self.simulate_move_times), np.std(self.simulate_move_times)))
+		# 	# logging.inf('Mean simulate move time +- SD: {} +- {}'.format(np.mean(self.simulate_move_times), np.std(self.simulate_move_times)))
 		return new_board
 
 	def me(self):
@@ -158,12 +158,12 @@ class Bot(object):
 			self.settings[key] = value
 			if key == 'your_botid':
 				self.settings['your_botid'] = int(value)
-				logging.info('My botid: {}'.format(self.me()))
+				# logging.info('My botid: {}'.format(self.me()))
 				if self.me() == 1:
 					self.settings['opponent_botid'] = 2
 				elif self.me() == 2:
 					self.settings['opponent_botid'] = 1
-				logging.info('Opponent botid: {}'.format(self.him()))
+				# logging.info('Opponent botid: {}'.format(self.him()))
 
 		elif command == 'update':
 			sub_command = args[1]
@@ -191,7 +191,7 @@ class JDbot(Bot):
 	evaluate_times = []
 	round_timeout = -1
 	num_evals = 0 # number of board evaluations done
-	tt = hashtable(num_buckets=1024)
+	tt = transpositiontable(num_buckets=1e7)
 
 	def get_rounds_left(self):
 		""" Returns estimated number of rounds left in game. """
@@ -212,29 +212,26 @@ class JDbot(Bot):
 		return self.round_timeout - self.current_milli_time()
 
 	def make_turn(self):
-		logging.info('\n-------------------------------- next turn -------------------------------------')
-		logging.info('\n{}'.format(self.board))
+		# logging.info('\n-------------------------------- next turn -------------------------------------')
+		# logging.info('\n{}'.format(self.board))
 
-		logging.info('Time left: {}'.format(self.time_left()))
-		logging.info('Round: {}'.format(self.round))
+		# logging.info('Time left: {}'.format(self.time_left()))
+		# logging.info('Round: {}'.format(self.round))
 
 		stopwatch = time.time()
 		move = self.alphabeta(self.board)
-		logging.info('Choosing a move took: {} milliseconds'.format((time.time() - stopwatch) * 1000))
+		# logging.info('Choosing a move took: {} milliseconds'.format((time.time() - stopwatch) * 1000))
 
-		logging.info('Chosen move: {}'.format(move))
+		# logging.info('Chosen move: {}'.format(move))
 		
 		new_board = self.simulate_place_disc(self.board, move, self.me())
-		logging.info('\n{}'.format(new_board))
+		# logging.info('\n{}'.format(new_board))
 
 		board_value = self.evaluate_board(new_board)
-		logging.info('Board value: {}'.format(board_value))
+		# logging.info('Board value: {}'.format(board_value))
 
-		logging.info('Board evaluations this turn: {}'.format(self.num_evals))
+		# logging.info('Board evaluations this turn: {}'.format(self.num_evals))
 		self.num_evals = 0
-		logging.info('Transposition table collisions: {}'.format(self.tt.num_collisions))
-
-		# logging.info('Current hash table size (MB): {}'.format(sys.getsizeof(self.board_hash)/1e6))
 
 		self.place_disc(move)
 
@@ -276,7 +273,7 @@ class JDbot(Bot):
 
 		# sets estimated optimal time to spend on this round
 		self.set_round_timeout()
-		logging.info('Estimated time to spend on this round: {}ms'.format(self.round_time_left()))
+		# logging.info('Estimated time to spend on this round: {}ms'.format(self.round_time_left()))
 
 		values = np.array([-float('inf')]*7)
 		alpha = -float('inf')
@@ -294,10 +291,10 @@ class JDbot(Bot):
 				if self.round_time_left() <= 0:
 					break
 
-			logging.info('Move values: {}'.format(new_values))
+			# logging.info('Move values: {}'.format(new_values))
 
 			if np.max(new_values) == -float('inf'):
-				logging.info("I think we're going to lose, but I'm going to delay it for as long as I can.")
+				# logging.info("I think we're going to lose, but I'm going to delay it for as long as I can.")
 				break
 
 			values = new_values
@@ -307,11 +304,11 @@ class JDbot(Bot):
 				break
 
 			if np.any(new_values==float('inf')):
-				logging.info("I think we're going to win!")
+				# logging.info("I think we're going to win!")
 				break
 
 			if self.round_time_left() <= 0:
-				logging.info('Reached depth of: {}'.format(run_depth))
+				# logging.info('Reached depth of: {}'.format(run_depth))
 				break
 
 			run_depth += 1
@@ -319,7 +316,7 @@ class JDbot(Bot):
 		# slightly prefer certain columns
 		values += np.array([0,1,2,3,2,1,0])
 		
-		logging.info('Move values: {}'.format(values))
+		# logging.info('Move values: {}'.format(values))
 
 		if np.max(values) == -float('inf'):
 			# all moves lead to losing. pick a valid move at random.
@@ -502,4 +499,4 @@ if __name__ == '__main__':
 		JDbot().run()
 		# StarterBot().test()
 	except:
-		logging.exception("Oops:")
+		# logging.exception("Oops:")
