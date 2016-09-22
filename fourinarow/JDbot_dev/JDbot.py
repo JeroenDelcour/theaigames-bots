@@ -4,12 +4,13 @@
 # Built upon Lukas Knoepfel's <shylux@gmail.com> starter bot (version 1.0, 30 Mar 2016)
 # under the MIT license (http://opensource.org/licenses/MIT)
 
+from __future__ import division
 from sys import stdin, stdout
 import numpy as np
 from KnuthMorrisPratt import KnuthMorrisPratt
 import time
-# import # logging, sys
-# logging.basicConfig(filename='JDbot.log',format='%(asctime)s %(levelname)s: %(message)s',level=# logging.DEBUG)
+import logging, sys
+logging.basicConfig(filename='JDbot.log',format='%(asctime)s %(levelname)s: %(message)s',level=logging.DEBUG)
 
 
 
@@ -18,22 +19,29 @@ class transpositiontable:
 	Hash table inspired by Zulko's easyAI: https://github.com/Zulko/easyAI/blob/master/easyAI/AI/DictTT.py
 	"""
 
+	length = 0
+
 	def __init__(self, num_buckets=1024):
 		self.dict = []
 		for i in range(int(num_buckets)):
 			self.dict.append((None, None))
-		# logging.info('Transposition table size (MB): {}'.format(sys.getsizeof(self.tt.dict)/1e6))
+		self.length = int(num_buckets)
+		logging.info('Transposition table size (MB): {}'.format(sys.getsizeof(self.dict)/1e6))
 		self.num_collisions = 0
 
 	def hash_key(self, key):
 		"""
 		Given a key this will create a number and convert it to an index for the dict.
 		"""
-		return hash(key) % len(self.dict)
+		return key % self.length
 
-	def get(self, key):
+	def get(self, board):
+		key = self.own_hash(board)
 		i, k, v = self.get_slot(key)
 		return v
+
+	def own_hash(self, board):
+		return hash(''.join(x for x in board.flatten().astype(str)))
 
 	def get_slot(self, key):
 		slot = self.hash_key(key)
@@ -43,7 +51,8 @@ class transpositiontable:
 		else:
 			return -1, key, None
 
-	def set(self, key, value):
+	def set(self, board, value):
+		key = self.own_hash(board)
 		slot = self.hash_key(key)
 
 		if self.dict[slot] != (None, None):
@@ -52,8 +61,37 @@ class transpositiontable:
 		self.dict[slot] = (key, value)
 
 	def delete(self, key):
+		key = self.own_hash(key)
 		slot = self.hash_key(key)
 		self.dict[slot] = (None, None)
+
+class zobrist:
+
+	table = {}
+	num_gets = 0
+
+	def __init__(self):
+		self.zobristnum = np.random.randint(0, 4294967296L, size=(6*7,2))
+
+	def zhash(self, board):
+		board = board.flatten()
+		val = 0;
+		for i in range(6*7):
+			if not board[i] == 0:
+				piece = board[i]-1
+				val ^= self.zobristnum[i][piece]
+		return val
+
+	def get(self, board):
+		try:
+			value = self.table[self.zhash(board)]
+			self.num_gets += 1
+		except KeyError:
+			value = False
+		return value
+
+	def set(self, board, value):
+		self.table[self.zhash(board)] = value
 
 
 class Bot(object):
@@ -93,7 +131,7 @@ class Bot(object):
 		new_board[np.max(np.where(new_board[:,col_nr]==0)),col_nr] = curr_player
 		# self.simulate_move_times.append(time.time() - stopwatch)
 		# if len(self.simulate_move_times) >= 3:
-		# 	# logging.inf('Mean simulate move time +- SD: {} +- {}'.format(np.mean(self.simulate_move_times), np.std(self.simulate_move_times)))
+		# 	logging.inf('Mean simulate move time +- SD: {} +- {}'.format(np.mean(self.simulate_move_times), np.std(self.simulate_move_times)))
 		return new_board
 
 	def me(self):
@@ -158,12 +196,12 @@ class Bot(object):
 			self.settings[key] = value
 			if key == 'your_botid':
 				self.settings['your_botid'] = int(value)
-				# logging.info('My botid: {}'.format(self.me()))
+				logging.info('My botid: {}'.format(self.me()))
 				if self.me() == 1:
 					self.settings['opponent_botid'] = 2
 				elif self.me() == 2:
 					self.settings['opponent_botid'] = 1
-				# logging.info('Opponent botid: {}'.format(self.him()))
+				logging.info('Opponent botid: {}'.format(self.him()))
 
 		elif command == 'update':
 			sub_command = args[1]
@@ -191,7 +229,7 @@ class JDbot(Bot):
 	evaluate_times = []
 	round_timeout = -1
 	num_evals = 0 # number of board evaluations done
-	tt = transpositiontable(num_buckets=1e7)
+	tt = zobrist()
 
 	def get_rounds_left(self):
 		""" Returns estimated number of rounds left in game. """
@@ -212,26 +250,32 @@ class JDbot(Bot):
 		return self.round_timeout - self.current_milli_time()
 
 	def make_turn(self):
-		# logging.info('\n-------------------------------- next turn -------------------------------------')
-		# logging.info('\n{}'.format(self.board))
+		logging.info('\n-------------------------------- next turn -------------------------------------')
+		logging.info('\n{}'.format(self.board))
 
-		# logging.info('Time left: {}'.format(self.time_left()))
-		# logging.info('Round: {}'.format(self.round))
+		logging.info('Time left: {}'.format(self.time_left()))
+		logging.info('Round: {}'.format(self.round))
 
 		stopwatch = time.time()
 		move = self.alphabeta(self.board)
-		# logging.info('Choosing a move took: {} milliseconds'.format((time.time() - stopwatch) * 1000))
+		logging.info('Choosing a move took: {} milliseconds'.format((time.time() - stopwatch) * 1000))
 
-		# logging.info('Chosen move: {}'.format(move))
+		logging.info('Chosen move: {}'.format(move))
 		
 		new_board = self.simulate_place_disc(self.board, move, self.me())
-		# logging.info('\n{}'.format(new_board))
+		logging.info('\n{}'.format(new_board))
 
 		board_value = self.evaluate_board(new_board)
-		# logging.info('Board value: {}'.format(board_value))
+		logging.info('Board value: {}'.format(board_value))
 
-		# logging.info('Board evaluations this turn: {}'.format(self.num_evals))
+		logging.info('Board evaluations this turn: {}'.format(self.num_evals))
 		self.num_evals = 0
+		logging.info('Average evaluation time: {} ms'.format(np.mean(self.evaluate_times) * 1000))
+		self.evaluate_times = []
+		logging.info('# of successful table lookups: {}'.format(self.tt.num_gets))
+		self.tt.num_gets = 0
+
+		logging.info('Table size: {}'.format(len(self.tt.table)))
 
 		self.place_disc(move)
 
@@ -273,7 +317,7 @@ class JDbot(Bot):
 
 		# sets estimated optimal time to spend on this round
 		self.set_round_timeout()
-		# logging.info('Estimated time to spend on this round: {}ms'.format(self.round_time_left()))
+		logging.info('Estimated time to spend on this round: {}ms'.format(self.round_time_left()))
 
 		values = np.array([-float('inf')]*7)
 		alpha = -float('inf')
@@ -291,10 +335,10 @@ class JDbot(Bot):
 				if self.round_time_left() <= 0:
 					break
 
-			# logging.info('Move values: {}'.format(new_values))
+			logging.info('Move values: {}'.format(new_values))
 
 			if np.max(new_values) == -float('inf'):
-				# logging.info("I think we're going to lose, but I'm going to delay it for as long as I can.")
+				logging.info("I think we're going to lose, but I'm going to delay it for as long as I can.")
 				break
 
 			values = new_values
@@ -304,11 +348,11 @@ class JDbot(Bot):
 				break
 
 			if np.any(new_values==float('inf')):
-				# logging.info("I think we're going to win!")
+				logging.info("I think we're going to win!")
 				break
 
 			if self.round_time_left() <= 0:
-				# logging.info('Reached depth of: {}'.format(run_depth))
+				logging.info('Reached depth of: {}'.format(run_depth))
 				break
 
 			run_depth += 1
@@ -316,7 +360,7 @@ class JDbot(Bot):
 		# slightly prefer certain columns
 		values += np.array([0,1,2,3,2,1,0])
 		
-		# logging.info('Move values: {}'.format(values))
+		logging.info('Move values: {}'.format(values))
 
 		if np.max(values) == -float('inf'):
 			# all moves lead to losing. pick a valid move at random.
@@ -369,6 +413,8 @@ class JDbot(Bot):
 
 	def evaluate_board(self, board):
 
+		stopwatch = time.time()
+
 		self.num_evals += 1
 
 		# stopwatch = time.time()
@@ -380,9 +426,11 @@ class JDbot(Bot):
 		diag_multiplier = 10
 		even_odd_multiplier = 1.5
 
+
+
 		# first check if this board is in our hash table
-		value = self.tt.get(str(board))
-		if value != None:
+		value = self.tt.get(board)
+		if value:
 			return value
 
 		value = 0
@@ -444,7 +492,9 @@ class JDbot(Bot):
 				value -= v
 
 			# store value in transposition table
-			self.tt.set(str(board), value)
+			# self.tt.set(board, value)
+
+		self.evaluate_times.append(time.time() - stopwatch)
 
 		return value
 
@@ -495,8 +545,8 @@ class JDbot(Bot):
 if __name__ == '__main__':
 	""" Run the bot! """
 
-	# try:
-	JDbot().run()
+	try:
+		JDbot().run()
 		# StarterBot().test()
-	# except:
-		# logging.exception("Oops:")
+	except:
+		logging.exception("Oops:")

@@ -186,6 +186,8 @@ class StarterBot(Bot):
 		
 		logging.info('Board evaluations this turn: {}'.format(self.num_evals))
 		self.num_evals = 0
+		logging.info('Average evaluation time: {} ms'.format(np.mean(self.evaluate_times) * 1000))
+		self.evaluate_times = []
 
 		self.place_disc(move)
 
@@ -323,6 +325,8 @@ class StarterBot(Bot):
 
 	def evaluate_board(self, board):
 
+		stopwatch = time.time()
+
 		self.num_evals += 1
 
 		# stopwatch = time.time()
@@ -391,6 +395,8 @@ class StarterBot(Bot):
 				value += v
 			else:
 				value -= v
+
+		self.evaluate_times.append(time.time() - stopwatch)
 
 		return value
 
